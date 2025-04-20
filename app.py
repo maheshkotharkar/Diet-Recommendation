@@ -55,8 +55,8 @@ st.markdown(
 
 
 # Load the trained model
-model = joblib.load(r"C:\Users\madhu\OneDrive\Desktop\project\diet_plan_model_Randomf.pkl")
-label_encoder = joblib.load(r"C:\Users\madhu\OneDrive\Desktop\project\label_encoder.pkl")
+model = joblib.load(r"diet_plan_model.pkl")
+label_encoder = joblib.load(r"label_encoder.pkl")
 
 st.title("🥗 AI-Powered Diet Plan Recommendation System")
 st.markdown(
