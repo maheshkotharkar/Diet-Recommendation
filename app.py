@@ -34,7 +34,7 @@ st.markdown("""
 @st.cache_resource
 def load_assets():
     try:
-        model = joblib.load('diet_plan_model_Randomf.pkl')
+        model = joblib.load('diet_plan_model.pkl')
         encoder = joblib.load('label_encoder.pkl')
         return model, encoder
     except Exception as e:
