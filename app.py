@@ -1,31 +1,30 @@
+# app.py
 import streamlit as st
 import joblib
 import numpy as np
 import random
+from pathlib import Path
 
-st.markdown(
-    """
-    <style>
-    /* Vibrant background image */
+# Initialize session state for meal history
+if 'meal_history' not in st.session_state:
+    st.session_state.meal_history = []
+
+# ========== CSS Styling ==========
+st.markdown("""
+<style>
     .stApp {
         background-image: url('https://images.unsplash.com/photo-1601313104473-4e18f5e3c1a9');
         background-size: cover;
-        background-repeat: no-repeat;
         background-attachment: fixed;
     }
-
-    /* Center the title */
     .main > div:first-child {
         text-align: center;
         padding-top: 20px;
     }
-
-    /* Customize title color */
     .stApp h1 {
-        color: #2E8B57; /* Sea green */
+        color: #2E8B57;
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
     }
-
-    /* Style buttons */
     .stButton>button {
         background-color: #4CAF50;
         color: white;
@@ -33,108 +32,168 @@ st.markdown(
         height: 3em;
         width: 100%;
         font-weight: bold;
+        transition: all 0.3s;
     }
-
-    /* Add shadow to input widgets */
-    .stTextInput, .stSelectbox, .stNumberInput {
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        padding: 10px;
-        background-color: rgba(255, 255, 255, 0.85);  /* Slight background for contrast */
+    .stButton>button:hover {
+        background-color: #3e8e41;
+        transform: scale(1.01);
+    }
+    .input-container {
+        background-color: rgba(255, 255, 255, 0.9);
         border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
-
-    /* Container spacing */
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+    .meal-card {
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s;
     }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+    .meal-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+</style>
+""", unsafe_allow_html=True)
 
-
-# Load the trained model
-model = joblib.load(r"diet_plan_model.pkl")
-label_encoder = joblib.load(r"label_encoder.pkl")
-
-st.title("🥗 AI-Powered Diet Plan Recommendation System")
-st.markdown(
-    """
-    <div style='text-align:center; padding: 10px; background-color:#f0f9ff; border-radius:10px; margin-bottom:20px'>
-        <h3>💡 Personalized Health + Diet Plan Generator</h3>
-        <p style='font-size:16px;'>Smart nutrition suggestions powered by Machine Learning </p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# User Input Fields
-#  Height & Weight inputs for BMI
-height = st.number_input("Enter your height (in cm)", min_value=100, max_value=250, value=170)
-weight = st.number_input("Enter your weight (in kg)", min_value=30, max_value=200, value=65)
-
-#  Calculate BMI
-bmi = round(weight / ((height / 100) ** 2), 2)
-st.info(f"🧬 Your BMI is: **{bmi}**")
-
-#  Automatically determine Health Goal
-if bmi > 30:
-    health_goal = "Weight Loss"
-elif bmi < 18.5:
-    health_goal = "Weight Gain"
-else:
-    health_goal = "Maintain Weight"
-
-st.success(f"🎯 Based on your BMI, your health goal is: **{health_goal}**")
-
-medical_conditions = st.selectbox("Medical Condition", ["None", "Diabetes", "Hypertension", "Heart Disease"])
-macro_preference = st.selectbox("Macro Preference", ["Balanced", "High Protein", "Low Carb"])
-diet_type_1 = st.selectbox("Diet Type 1", ["Vegetarian", "Non-Vegetarian", "Vegan"])
-diet_type_2 = st.selectbox("Diet Type 2", ["Gluten-Free", "Regular"])
-
-# Encode categorical values manually
-medical_conditions_mapping = {"None": 0, "Diabetes": 1, "Hypertension": 2, "Heart Disease": 3}
-macro_preference_mapping = {"Balanced": 0, "High Protein": 1, "Low Carb": 2}
-diet_type_1_mapping = {"Vegetarian": 0, "Non-Vegetarian": 1, "Vegan": 2}
-diet_type_2_mapping = {"Gluten-Free": 0, "Regular": 1}
-
-# Convert selections to numerical values
-medical_conditions_encoded = medical_conditions_mapping[medical_conditions]
-macro_preference_encoded = macro_preference_mapping[macro_preference]
-diet_type_1_encoded = diet_type_1_mapping[diet_type_1]
-diet_type_2_encoded = diet_type_2_mapping[diet_type_2]
-
-# Create input array
-input_data = np.array([[medical_conditions_encoded, macro_preference_encoded, diet_type_1_encoded, diet_type_2_encoded]])
-
-# Prediction button
-if st.button("Get Diet Plan"):
+# ========== Model Loading ==========
+@st.cache_resource
+def load_model_assets():
     try:
-        # Get top 3 meal plans based on probability
-        probs = model.predict_proba(input_data)[0]
-        top_3_indices = np.argsort(probs)[-3:][::-1]  # Get indices of top 3 meals
-        top_3_meals = label_encoder.inverse_transform(top_3_indices)
+        model_path = Path(__file__).parent / "diet_plan_model.pkl"
+        encoder_path = Path(__file__).parent / "label_encoder.pkl"
+        return joblib.load(model_path), joblib.load(encoder_path)
+    except Exception as e:
+        st.error(f"❌ Error loading model files: {str(e)}")
+        st.error("Please ensure:")
+        st.error("1. Model files exist in the same directory")
+        st.error("2. Files are not corrupted")
+        st.error("3. Dependencies match requirements.txt")
+        st.stop()
 
-        # Meal filters
-        vegetarian_meals = [meal for meal in label_encoder.classes_ if "Chicken" not in meal and "Fish" not in meal and "Eggs" not in meal]
-        vegan_meals = [meal for meal in vegetarian_meals if "Cheese" not in meal and "Milk" not in meal]
-        non_vegetarian_meals = [meal for meal in label_encoder.classes_ if meal not in vegetarian_meals]
+model, label_encoder = load_model_assets()
 
-        # Adjust for diet types
-        final_meals = []
-        for meal in top_3_meals:
-            if diet_type_1 == "Vegetarian" and meal in non_vegetarian_meals:
-                meal = random.choice(vegetarian_meals) if vegetarian_meals else "Vegetarian Meal Plan (Default)"
-            if diet_type_1 == "Vegan" and meal not in vegan_meals:
-                meal = random.choice(vegan_meals) if vegan_meals else "Vegan Meal Plan (Default)"
-            final_meals.append(meal)
-        
-        # Display top 3 meal recommendations
-        st.success("🍽 Recommended Meal Plans:")
-        for i, meal in enumerate(final_meals):
-            st.write(f"{i+1}. **{meal}**")
+# ========== App Header ==========
+st.title("🥗 AI-Powered Diet Plan Recommendation")
+st.markdown("""
+<div style='text-align:center; background-color:rgba(240,249,255,0.8); border-radius:10px; padding:10px; margin-bottom:20px'>
+    <h3>💡 Personalized Nutrition Plans</h3>
+    <p style='font-size:16px;'>Get customized meal recommendations based on your profile</p>
+</div>
+""", unsafe_allow_html=True)
 
-    except ValueError:
-        st.error("⚠️ Error: Predicted label is unknown. Please retrain the label encoder.")
+# ========== User Input Section ==========
+with st.container():
+    st.markdown('<div class="input-container">', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        height = st.number_input("Your height (cm)", min_value=100, max_value=250, value=170)
+    with col2:
+        weight = st.number_input("Your weight (kg)", min_value=30, max_value=200, value=65)
+    
+    # BMI Calculation
+    bmi = round(weight / ((height / 100) ** 2), 2)
+    bmi_status = (
+        "Underweight" if bmi < 18.5 else
+        "Normal" if 18.5 <= bmi < 25 else
+        "Overweight" if 25 <= bmi < 30 else
+        "Obese"
+    )
+    
+    st.info(f"""
+    🧬 **Health Summary**  
+    BMI: {bmi} ({bmi_status})  
+    Goal: {'Weight Gain' if bmi < 18.5 else 'Weight Loss' if bmi > 25 else 'Maintenance'}
+    """)
+    
+    # Diet Preferences
+    medical_conditions = st.selectbox(
+        "Medical Considerations",
+        ["None", "Diabetes", "Hypertension", "Heart Disease"]
+    )
+    
+    col3, col4 = st.columns(2)
+    with col3:
+        diet_type = st.selectbox(
+            "Diet Preference",
+            ["Vegetarian", "Non-Vegetarian", "Vegan"]
+        )
+    with col4:
+        macro_preference = st.selectbox(
+            "Macronutrient Focus",
+            ["Balanced", "High Protein", "Low Carb"]
+        )
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ========== Prediction Logic ==========
+if st.button("🍎 Generate Meal Plan", type="primary", use_container_width=True):
+    with st.spinner('Analyzing your profile and generating recommendations...'):
+        try:
+            # Encoding mappings
+            condition_map = {"None":0, "Diabetes":1, "Hypertension":2, "Heart Disease":3}
+            macro_map = {"Balanced":0, "High Protein":1, "Low Carb":2}
+            diet_map = {"Vegetarian":0, "Non-Vegetarian":1, "Vegan":2}
+            
+            # Prepare input data
+            input_data = np.array([[
+                condition_map[medical_conditions],
+                macro_map[macro_preference],
+                diet_map[diet_type]
+            ]])
+            
+            # Get predictions
+            probs = model.predict_proba(input_data)[0]
+            top_3_indices = np.argsort(probs)[-3:][::-1]
+            top_3_meals = label_encoder.inverse_transform(top_3_indices)
+            
+            # Filter meals based on diet type
+            veg_meals = [m for m in label_encoder.classes_ 
+                        if not any(nv in m for nv in ["Chicken", "Fish", "Eggs"])]
+            vegan_meals = [m for m in veg_meals 
+                         if not any(d in m for d in ["Cheese", "Milk", "Yogurt"])]
+            
+            # Adjust recommendations
+            final_meals = []
+            for meal in top_3_meals:
+                if diet_type == "Vegetarian" and meal not in veg_meals:
+                    meal = random.choice(veg_meals) if veg_meals else "Vegetarian Plate"
+                elif diet_type == "Vegan" and meal not in vegan_meals:
+                    meal = random.choice(vegan_meals) if vegan_meals else "Vegan Bowl"
+                final_meals.append(meal)
+            
+            # Store in session history
+            st.session_state.meal_history = final_meals
+            
+            # Display results
+            st.success("🎉 Here are your personalized meal recommendations:")
+            for i, meal in enumerate(final_meals, 1):
+                st.markdown(f"""
+                <div class="meal-card">
+                    <h4>🥗 Option {i}: {meal}</h4>
+                    <p>Macro Focus: {macro_preference} | Diet Type: {diet_type}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+        except Exception as e:
+            st.error(f"⚠️ Error generating recommendations: {str(e)}")
+
+# ========== Meal History ==========
+if st.session_state.meal_history:
+    with st.expander("📚 Previous Recommendations"):
+        for meal in st.session_state.meal_history:
+            st.write(f"🍽️ {meal}")
+
+# ========== Footer ==========
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; font-size: small; color: gray;'>
+    <p>Note: These recommendations are AI-generated and should not replace professional medical advice</p>
+    <p>Model Version: 1.0 | Last Updated: 2023-11-15</p>
+</div>
+""", unsafe_allow_html=True)
